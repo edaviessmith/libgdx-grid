@@ -36,7 +36,7 @@ public class GdxGrid extends InputAdapter implements ApplicationListener {
     public CameraInputController camController;
     public PerspectiveCamera cam;
 
-    public ModelInstance modelWall, modelFloor;
+    public ModelInstance modelWall, modelFloor, modelRobot;
     public Array<GameObject> instances = new Array<GameObject>();
     public ModelBatch modelBatch;
 
@@ -110,6 +110,7 @@ public class GdxGrid extends InputAdapter implements ApplicationListener {
         assets = new AssetManager();
         assets.load("floor.obj", Model.class);
         assets.load("wall.obj", Model.class);
+        assets.load("robot.obj", Model.class);
         loading = true;
 	}
 
@@ -121,7 +122,9 @@ public class GdxGrid extends InputAdapter implements ApplicationListener {
     private void doneLoading() {
         modelFloor = new ModelInstance(assets.get("floor.obj", Model.class));
         modelWall = new ModelInstance(assets.get("wall.obj", Model.class));
+        modelRobot = new ModelInstance(assets.get("robot.obj", Model.class));
 
+        System.out.println("modelRobot: "+modelRobot.toString());
 
         for(int z=0; z < cubeY; z++) {
             for (int x = 0; x < cubeX; x++) {
@@ -152,6 +155,9 @@ public class GdxGrid extends InputAdapter implements ApplicationListener {
                 modelBatch.render(go.modelInstance, environment);
                 visibleCount ++;
             }
+        }
+        if(assets.isLoaded("robot.obj")) {
+            modelBatch.render(modelRobot, environment);
         }
         modelBatch.end();
 
@@ -185,6 +191,7 @@ public class GdxGrid extends InputAdapter implements ApplicationListener {
 
         modelWall.model.dispose();
         modelFloor.model.dispose();
+        modelRobot.model.dispose();
 
         exploreImage.dispose();
         buildImage.dispose();
@@ -194,7 +201,7 @@ public class GdxGrid extends InputAdapter implements ApplicationListener {
 
     @Override
     public boolean touchDown (int screenX, int screenY, int pointer, int button) {
-        if(screenX < 80 && screenY > stage.getHeight() - 80){
+        if(screenX < 80 && screenY > stage.getHeight() - 110){
             editMode = (editMode == MODE_BUILD? MODE_EXPLORE: MODE_BUILD);
         }
 
