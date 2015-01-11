@@ -23,7 +23,6 @@ import com.badlogic.gdx.graphics.g3d.utils.CameraInputController;
 import com.badlogic.gdx.math.Intersector;
 import com.badlogic.gdx.math.Matrix4;
 import com.badlogic.gdx.math.Quaternion;
-import com.badlogic.gdx.math.Rectangle;
 import com.badlogic.gdx.math.Vector3;
 import com.badlogic.gdx.math.collision.Ray;
 import com.badlogic.gdx.scenes.scene2d.Stage;
@@ -53,7 +52,6 @@ public class GdxGrid extends InputAdapter implements ApplicationListener {
     Texture buildImage;
     TextureRegion exploreTex;
     TextureRegion buildTex;
-    Rectangle textureModeBounds;
 
     private int selected = -1, selecting = -1;
 
@@ -64,12 +62,15 @@ public class GdxGrid extends InputAdapter implements ApplicationListener {
     public float width = 1f;
     public float depth = 1f;
 
-    int cubeY = 6, cubeX = 6;
+    int cubeY = 12, cubeX = 12;
 
-    int editMode;
+    int editMode, selectedType;
 
-    private final int MODE_EXPLORE = 0;
-    private final int MODE_BUILD = 1;
+    private static final int MODE_EXPLORE = 0;
+    private static final int MODE_BUILD = 1;
+
+    public static final int TYPE_WALL = 0;
+    public static final int TYPE_FLOOR = 1;
 
 
 	@Override
@@ -102,8 +103,9 @@ public class GdxGrid extends InputAdapter implements ApplicationListener {
         environment.add(new DirectionalLight().set(0.8f, 0.8f, 0.8f, -1f, -0.8f, -0.2f));
 
         camController = new CameraInputController(cam);
-
         Gdx.input.setInputProcessor(new InputMultiplexer(this, camController));
+
+        selectedType = -1;
 
         assets = new AssetManager();
         assets.load("floor.obj", Model.class);
@@ -196,47 +198,57 @@ public class GdxGrid extends InputAdapter implements ApplicationListener {
             editMode = (editMode == MODE_BUILD? MODE_EXPLORE: MODE_BUILD);
         }
 
-        if(editMode == MODE_BUILD) selecting = getObject(screenX, screenY);
-        return selecting >= 0;
+        if(editMode == MODE_BUILD) {
+            setSelected(getObject(screenX, screenY));
+        }
+
+        return editMode == MODE_BUILD;// || selecting >= 0;
     }
 
     @Override
     public boolean touchDragged (int screenX, int screenY, int pointer) {
-        return selecting >= 0;
+        if(editMode == MODE_BUILD) {
+            setSelected(getObject(screenX, screenY));
+        }
+
+        return editMode == MODE_BUILD;// && selecting >= 0;
     }
 
     @Override
     public boolean touchUp (int screenX, int screenY, int pointer, int button) {
-        if (editMode == MODE_BUILD && selecting >= 0) {
-            if (selecting == getObject(screenX, screenY))
-                setSelected(selecting);
-            selecting = -1;
-            return true;
-        }
-        return false;
+
+        selectedType = -1;
+        return editMode == MODE_BUILD;
     }
 
     public void setSelected (int value) {
-        if (selected == value) return;
-        if (selected >= 0) {
-            //Matrix4 transform = instances.get(selected).modelInstance.transform;
-            //instances.get(selected).modelInstance = new ModelInstance(modelCube);
-            //instances.get(selected).modelInstance.transform = transform;
+        if (value < 0) return;
+        /*if (selected >= 0) {
 
-            //Material mat = instances.get(selected).modelInstance.materials.get(0);
-            //mat.clear();
-            //mat.set(originalMaterial);
-        }
+        }*/
+
         selected = value;
+
+        if(selectedType == -1) {
+            if(instances.get(selected).type == TYPE_WALL)
+                selectedType = TYPE_FLOOR;
+            else if(instances.get(selected).type == TYPE_FLOOR)
+                selectedType = TYPE_WALL;
+        }
+
+
         if (selected >= 0) {
             Matrix4 transform = instances.get(selected).modelInstance.transform;
-            instances.get(selected).modelInstance = new ModelInstance(modelFloor);
+            if(instances.get(selected).type != selectedType) {
+                if (instances.get(selected).type == TYPE_WALL) {
+                    instances.get(selected).modelInstance = new ModelInstance(modelFloor);
+                    instances.get(selected).type = TYPE_FLOOR;
+                } else if (instances.get(selected).type == TYPE_FLOOR) {
+                    instances.get(selected).modelInstance = new ModelInstance(modelWall);
+                    instances.get(selected).type = TYPE_WALL;
+                }
+            }
             instances.get(selected).modelInstance.transform = transform;
-            /*Material mat = instances.get(selected).modelInstance.materials.get(0);
-            originalMaterial.clear();
-            originalMaterial.set(mat);
-            mat.clear();
-            mat.set(selectionMaterial);*/
         }
     }
 

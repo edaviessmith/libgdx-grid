@@ -11,6 +11,7 @@ public class GameObject {
     public final Vector3 dimensions = new Vector3();
     public ModelInstance modelInstance;
     public final float radius;
+    public int type;
 
     private final static BoundingBox bounds = new BoundingBox();
 
@@ -19,7 +20,8 @@ public class GameObject {
         this.modelInstance.calculateBoundingBox(bounds);
         bounds.getCenter(center);
         bounds.getDimensions(dimensions);
-        radius = dimensions.len() / 2f;
+        radius = dimensions.len() / 2.2f;
+        type = GdxGrid.TYPE_WALL;
     }
 
    /* public GameObject(Model model, String rootNode, boolean mergeTransform) {
