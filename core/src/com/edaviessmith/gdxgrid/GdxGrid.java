@@ -9,7 +9,10 @@ import com.badlogic.gdx.graphics.Camera;
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.GL20;
 import com.badlogic.gdx.graphics.PerspectiveCamera;
+import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.BitmapFont;
+import com.badlogic.gdx.graphics.g2d.SpriteBatch;
+import com.badlogic.gdx.graphics.g2d.TextureRegion;
 import com.badlogic.gdx.graphics.g3d.Environment;
 import com.badlogic.gdx.graphics.g3d.Model;
 import com.badlogic.gdx.graphics.g3d.ModelBatch;
@@ -20,11 +23,13 @@ import com.badlogic.gdx.graphics.g3d.utils.CameraInputController;
 import com.badlogic.gdx.math.Intersector;
 import com.badlogic.gdx.math.Matrix4;
 import com.badlogic.gdx.math.Quaternion;
+import com.badlogic.gdx.math.Rectangle;
 import com.badlogic.gdx.math.Vector3;
 import com.badlogic.gdx.math.collision.Ray;
 import com.badlogic.gdx.scenes.scene2d.Stage;
 import com.badlogic.gdx.scenes.scene2d.ui.Label;
 import com.badlogic.gdx.utils.Array;
+
 
 public class GdxGrid extends InputAdapter implements ApplicationListener {
 
@@ -42,6 +47,13 @@ public class GdxGrid extends InputAdapter implements ApplicationListener {
     protected Label label;
     protected BitmapFont font;
     protected StringBuilder stringBuilder;
+    SpriteBatch batcher;
+
+    Texture exploreImage;
+    Texture buildImage;
+    TextureRegion exploreTex;
+    TextureRegion buildTex;
+    Rectangle textureModeBounds;
 
     private int selected = -1, selecting = -1;
 
@@ -54,6 +66,12 @@ public class GdxGrid extends InputAdapter implements ApplicationListener {
 
     int cubeY = 6, cubeX = 6;
 
+    int editMode;
+
+    private final int MODE_EXPLORE = 0;
+    private final int MODE_BUILD = 1;
+
+
 	@Override
 	public void create () {
         stage = new Stage();
@@ -61,6 +79,14 @@ public class GdxGrid extends InputAdapter implements ApplicationListener {
         label = new Label(" ", new Label.LabelStyle(font, Color.WHITE));
         stage.addActor(label);
         stringBuilder = new StringBuilder();
+
+        batcher = new SpriteBatch();
+
+        exploreImage = new Texture(Gdx.files.internal("explore.png"));
+        buildImage = new Texture(Gdx.files.internal("build.png"));
+
+        exploreTex = new TextureRegion(exploreImage);
+        buildTex = new TextureRegion(buildImage);
 
         modelBatch = new ModelBatch();
 
@@ -76,6 +102,7 @@ public class GdxGrid extends InputAdapter implements ApplicationListener {
         environment.add(new DirectionalLight().set(0.8f, 0.8f, 0.8f, -1f, -0.8f, -0.2f));
 
         camController = new CameraInputController(cam);
+
         Gdx.input.setInputProcessor(new InputMultiplexer(this, camController));
 
         assets = new AssetManager();
@@ -133,7 +160,12 @@ public class GdxGrid extends InputAdapter implements ApplicationListener {
         label.setText(stringBuilder);
         stage.draw();
 
+        batcher.begin();
+        batcher.draw(editMode == MODE_BUILD ? exploreTex : buildTex, 20f, 60f);
+        batcher.end();
+
 	}
+
 
     @Override
     public void pause() {
@@ -152,12 +184,19 @@ public class GdxGrid extends InputAdapter implements ApplicationListener {
         modelWall.model.dispose();
         modelFloor.model.dispose();
 
+        exploreImage.dispose();
+        buildImage.dispose();
+
         instances.clear();
     }
 
     @Override
     public boolean touchDown (int screenX, int screenY, int pointer, int button) {
-        selecting = getObject(screenX, screenY);
+        if(screenX < 80 && screenY > stage.getHeight() - 80){
+            editMode = (editMode == MODE_BUILD? MODE_EXPLORE: MODE_BUILD);
+        }
+
+        if(editMode == MODE_BUILD) selecting = getObject(screenX, screenY);
         return selecting >= 0;
     }
 
@@ -168,7 +207,7 @@ public class GdxGrid extends InputAdapter implements ApplicationListener {
 
     @Override
     public boolean touchUp (int screenX, int screenY, int pointer, int button) {
-        if (selecting >= 0) {
+        if (editMode == MODE_BUILD && selecting >= 0) {
             if (selecting == getObject(screenX, screenY))
                 setSelected(selecting);
             selecting = -1;
@@ -223,5 +262,6 @@ public class GdxGrid extends InputAdapter implements ApplicationListener {
         position.add(instance.center);
         return cam.frustum.sphereInFrustum(position, instance.radius);
     }
+
 
 }
