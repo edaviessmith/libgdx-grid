@@ -36,9 +36,11 @@ public class GdxGrid extends InputAdapter implements ApplicationListener {
     public CameraInputController camController;
     public PerspectiveCamera cam;
 
-    public ModelInstance modelWall, modelFloor, modelRobot;
+    public ModelInstance modelWall, modelFloor, modelRobot, modelSelector;
     public Array<GameObject> instances = new Array<GameObject>();
+
     public ModelBatch modelBatch;
+    SpriteBatch batch;
 
     protected AssetManager assets;
 
@@ -46,14 +48,16 @@ public class GdxGrid extends InputAdapter implements ApplicationListener {
     protected Label label;
     protected BitmapFont font;
     protected StringBuilder stringBuilder;
-    SpriteBatch batcher;
+
+
 
     Texture exploreImage;
     Texture buildImage;
+    Texture dragImage;
     TextureRegion exploreTex;
     TextureRegion buildTex;
+    TextureRegion dragTex;
 
-    private int selected = -1, selecting = -1;
 
     private Vector3 position = new Vector3();
     private boolean loading;
@@ -68,6 +72,7 @@ public class GdxGrid extends InputAdapter implements ApplicationListener {
 
     private static final int MODE_EXPLORE = 0;
     private static final int MODE_BUILD = 1;
+    private static final int MODE_DRAG = 2;
 
     public static final int TYPE_WALL = 0;
     public static final int TYPE_FLOOR = 1;
@@ -81,13 +86,15 @@ public class GdxGrid extends InputAdapter implements ApplicationListener {
         stage.addActor(label);
         stringBuilder = new StringBuilder();
 
-        batcher = new SpriteBatch();
+        batch = new SpriteBatch();
 
         exploreImage = new Texture(Gdx.files.internal("explore.png"));
         buildImage = new Texture(Gdx.files.internal("build.png"));
+        dragImage = new Texture(Gdx.files.internal("pick_robot.png"));
 
         exploreTex = new TextureRegion(exploreImage);
         buildTex = new TextureRegion(buildImage);
+        dragTex = new TextureRegion(dragImage);
 
         modelBatch = new ModelBatch();
 
@@ -111,6 +118,7 @@ public class GdxGrid extends InputAdapter implements ApplicationListener {
         assets.load("floor.obj", Model.class);
         assets.load("wall.obj", Model.class);
         assets.load("robot.obj", Model.class);
+        assets.load("selector.obj", Model.class);
         loading = true;
 	}
 
@@ -123,6 +131,7 @@ public class GdxGrid extends InputAdapter implements ApplicationListener {
         modelFloor = new ModelInstance(assets.get("floor.obj", Model.class));
         modelWall = new ModelInstance(assets.get("wall.obj", Model.class));
         modelRobot = new ModelInstance(assets.get("robot.obj", Model.class));
+        modelSelector = new ModelInstance(assets.get("selector.obj", Model.class));
 
         System.out.println("modelRobot: "+modelRobot.toString());
 
@@ -156,21 +165,24 @@ public class GdxGrid extends InputAdapter implements ApplicationListener {
                 visibleCount ++;
             }
         }
-        if(assets.isLoaded("robot.obj")) {
+        if(modelRobot != null) {
             modelBatch.render(modelRobot, environment);
+        }
+        if(editMode == MODE_DRAG) {
+            modelBatch.render(modelSelector, environment);
         }
         modelBatch.end();
 
         stringBuilder.setLength(0);
         stringBuilder.append(" FPS: ").append(Gdx.graphics.getFramesPerSecond());
         stringBuilder.append(" Visible: ").append(visibleCount);
-        stringBuilder.append(" Selected: ").append(selected);
         label.setText(stringBuilder);
         stage.draw();
 
-        batcher.begin();
-        batcher.draw(editMode == MODE_BUILD ? exploreTex : buildTex, 20f, 60f);
-        batcher.end();
+        batch.begin();
+        batch.draw(editMode == MODE_BUILD ? exploreTex : buildTex, 20f, 60f);
+        batch.draw(dragTex, 20f, 130f);
+        batch.end();
 
 	}
 
@@ -195,46 +207,56 @@ public class GdxGrid extends InputAdapter implements ApplicationListener {
 
         exploreImage.dispose();
         buildImage.dispose();
+        dragImage.dispose();
 
         instances.clear();
     }
 
     @Override
     public boolean touchDown (int screenX, int screenY, int pointer, int button) {
-        if(screenX < 80 && screenY > stage.getHeight() - 110){
+        if(screenX < 80 && screenY > stage.getHeight() - 120) {         //Edit Button
             editMode = (editMode == MODE_BUILD? MODE_EXPLORE: MODE_BUILD);
+        } else if(screenX < 80 && screenY > stage.getHeight() - 180) {  //Drag Button
+            editMode = MODE_DRAG;
         }
 
         if(editMode == MODE_BUILD) {
             setSelected(getObject(screenX, screenY));
         }
 
-        return editMode == MODE_BUILD;// || selecting >= 0;
+        return canCameraMove();
     }
 
     @Override
     public boolean touchDragged (int screenX, int screenY, int pointer) {
+        if(editMode == MODE_DRAG) {
+            int block = getObject(screenX, screenY - 160);
+            if(block >= 0 && instances.get(block).type == TYPE_FLOOR) {
+                modelSelector.transform = instances.get(block).modelInstance.transform;
+            }
+        }
+
         if(editMode == MODE_BUILD) {
             setSelected(getObject(screenX, screenY));
         }
 
-        return editMode == MODE_BUILD;// && selecting >= 0;
+        return canCameraMove();
     }
 
     @Override
     public boolean touchUp (int screenX, int screenY, int pointer, int button) {
 
+        if(editMode == MODE_DRAG) {
+            modelRobot.transform = modelSelector.transform;
+            editMode = MODE_EXPLORE;
+        }
+
         selectedType = -1;
-        return editMode == MODE_BUILD;
+        return canCameraMove();
     }
 
-    public void setSelected (int value) {
-        if (value < 0) return;
-        /*if (selected >= 0) {
-
-        }*/
-
-        selected = value;
+    public void setSelected (int selected) {
+        if (selected < 0) return;
 
         if(selectedType == -1) {
             if(instances.get(selected).type == TYPE_WALL)
@@ -276,6 +298,12 @@ public class GdxGrid extends InputAdapter implements ApplicationListener {
         }
         return result;
     }
+
+    //Return false if camera can move
+    boolean canCameraMove() {
+        return editMode != MODE_EXPLORE;
+    }
+
     protected boolean isVisible(final Camera cam, final GameObject instance) {
         instance.modelInstance.transform.getTranslation(position);
         position.add(instance.center);

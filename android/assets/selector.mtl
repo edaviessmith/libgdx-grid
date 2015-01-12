@@ -1,0 +1,11 @@
+# Blender MTL File: 'selector.blend'
+# Material Count: 1
+
+newmtl greenMat
+Ns 96.078431
+Ka 0.000000 0.000000 0.000000
+Kd 0.092887 0.447681 0.025252
+Ks 0.147846 0.143562 0.143562
+Ni 1.000000
+d 1.000000
+illum 2
